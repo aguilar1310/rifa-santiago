@@ -132,20 +132,55 @@
   .draw-stage.stage-2 { color: var(--pink); }
   .draw-stage.stage-done { color: var(--teal); }
 
-  .finalists-row {
-    display: none; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px;
+  .finalists-table-wrap { display: none; margin-bottom: 16px; }
+  .finalists-table-title {
+    text-align: center; font-weight: 700; font-size: 14px; color: var(--purple); margin-bottom: 8px;
   }
-  .finalist-chip {
-    background: var(--cream); border: 2px solid var(--line); border-radius: 12px;
-    padding: 8px 12px; font-weight: 800; font-size: 14px; color: var(--purple);
-    transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  .finalists-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .finalists-table th {
+    font-size: 11px; text-transform: uppercase; color: var(--purple-light);
+    text-align: left; padding: 6px; letter-spacing: 0.3px;
   }
-  .finalist-chip.active {
-    background: var(--pink); color: #fff; border-color: var(--pink); transform: scale(1.18);
+  .finalists-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  .finalists-table td.num { font-weight: 700; color: var(--teal); }
+  .finalist-row-anim {
+    opacity: 0; transform: translateY(6px);
+    animation: finalistRowIn 0.35s ease forwards;
   }
-  .finalist-chip.winner {
-    background: var(--gold); color: var(--purple); border-color: var(--gold);
-    transform: scale(1.22); box-shadow: 0 4px 14px rgba(255,201,60,0.55);
+  @keyframes finalistRowIn { to { opacity: 1; transform: translateY(0); } }
+  .finalist-row-winner td { background: #FFF3CE; font-weight: 800; }
+
+  .wheel-wrap {
+    display: none; position: relative; width: 260px; height: 260px;
+    margin: 6px auto 22px;
+  }
+  .wheel-pointer {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; z-index: 6;
+    border-left: 14px solid transparent; border-right: 14px solid transparent;
+    border-top: 24px solid var(--purple);
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+  }
+  .wheel {
+    width: 100%; height: 100%; border-radius: 50%;
+    border: 6px solid var(--purple);
+    box-shadow: 0 8px 22px rgba(42,23,80,0.35), inset 0 0 0 2px rgba(255,255,255,0.25);
+    position: relative;
+  }
+  .wheel-label-pos {
+    position: absolute; transform: translate(-50%, -50%);
+  }
+  .wheel-label {
+    background: rgba(255,248,237,0.94); color: var(--purple);
+    font-weight: 800; font-size: 12px; padding: 4px 7px; border-radius: 7px;
+    white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .wheel-hub {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--gold); border: 4px solid var(--purple);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; z-index: 5;
   }
 
   .notify-winner-block { margin-top: 14px; display: none; }
@@ -247,6 +282,10 @@
       <div class="hint" style="margin:10px 0 0;text-align:center;">
         Consejo: crea un respaldo después de cada tanda de ventas.
       </div>
+      <button class="btn btn-outline" id="btn-update-app" style="margin-top:14px;">🔄 Actualizar app</button>
+      <div class="hint" style="margin:8px 0 0;text-align:center;">
+        Usa esto si acabas de subir cambios y no los ves reflejados. No borra tus ventas.
+      </div>
     </div>
 
     <!-- SORTEO -->
@@ -254,7 +293,7 @@
       <div class="card">
         <h2>🗓️ Sorteo digital</h2>
         <p style="font-size:14px; color:var(--purple-light); line-height:1.4;">
-          Antes de sortear, comparte la lista de folios (pestaña Folios) para que todos puedan verificar sus números. El sorteo tiene dos etapas: primero recorre el universo completo de folios y elige finalistas al azar; luego una ruleta decide al ganador entre esos finalistas. Todo con números aleatorios generados en tu propio navegador.
+          Comparte la lista de folios (pestaña Folios) antes de sortear. El sorteo tiene dos etapas: primero se eligen finalistas al azar, luego una ruleta decide al ganador entre ellos.
         </p>
 
         <label for="finalist-count">Finalistas para la ruleta</label>
@@ -263,7 +302,19 @@
         <div class="hint" id="finalist-count-hint" style="margin:-2px 0 16px;">Si hay menos folios que este número, se usan todos.</div>
 
         <div class="draw-stage" id="draw-stage-label">Listo para comenzar</div>
-        <div class="finalists-row" id="finalists-row"></div>
+        <div class="finalists-table-wrap" id="finalists-table-wrap">
+          <div class="finalists-table-title">🎯 Finalistas</div>
+          <table class="finalists-table">
+            <thead><tr><th>#</th><th>Folio</th><th>Participante</th></tr></thead>
+            <tbody id="finalists-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="wheel-wrap" id="wheel-wrap">
+          <div class="wheel-pointer"></div>
+          <div class="wheel" id="wheel"></div>
+          <div class="wheel-hub">🎁</div>
+        </div>
         <div class="winner-box" id="winner-box">
           <div style="font-size:14px; color:var(--purple-light);">Folio ganador</div>
           <div class="folio-big" id="winner-folio">—</div>
@@ -770,10 +821,32 @@ document.getElementById("restore-file").addEventListener("change", (e) => {
   e.target.value = "";
 });
 
-// --- Sorteo (dos etapas: universo -> finalistas -> ruleta) ---
+// --- Forzar actualización (limpia caché/service worker, NO toca los datos guardados) ---
+document.getElementById("btn-update-app").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-update-app");
+  btn.disabled = true;
+  btn.textContent = "Actualizando...";
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+    }
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      for (const key of keys) await caches.delete(key);
+    }
+    showToast("Actualizando, un momento...");
+    setTimeout(() => location.reload(), 400);
+  } catch (e) {
+    showToast("No se pudo actualizar automáticamente. Cierra y vuelve a abrir la app.");
+    btn.disabled = false;
+    btn.textContent = "🔄 Actualizar app";
+  }
+});
+
+// --- Sorteo (dos etapas: universo -> finalistas en tabla -> ruleta real) ---
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function easeOutQuad(t) { return t * (2 - t); }
-function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
 function spinFlicker(pool, ticks, startDelay, endDelay, onTick) {
   return new Promise((resolve) => {
@@ -784,21 +857,6 @@ function spinFlicker(pool, ticks, startDelay, endDelay, onTick) {
       i++;
       if (i >= ticks) { resolve(); return; }
       const delay = startDelay + (endDelay - startDelay) * easeOutQuad(i / ticks);
-      setTimeout(next, delay);
-    }
-    next();
-  });
-}
-
-function spinRoulette(items, totalSteps, onStep) {
-  return new Promise((resolve) => {
-    let step = 0;
-    function next() {
-      const idx = step % items.length;
-      onStep(idx, items[idx]);
-      step++;
-      if (step > totalSteps) { resolve(); return; }
-      const delay = 60 + (650 - 60) * easeOutCubic(step / totalSteps);
       setTimeout(next, delay);
     }
     next();
@@ -816,13 +874,93 @@ function pickRandomSubset(list, n) {
   return result;
 }
 
+const WHEEL_PALETTE = ["#FF3E7F", "#17B8A6", "#FFC93C", "#4A1D6E", "#2A1750", "#E8A400", "#8C4FD1", "#0E9A8B"];
+
+function buildWheel(finalists) {
+  const wheel = document.getElementById("wheel");
+  wheel.style.transition = "none";
+  wheel.style.transform = "rotate(0deg)";
+  wheel.innerHTML = "";
+
+  const n = finalists.length;
+  const segAngle = 360 / n;
+
+  // fondo con gajos de color
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const color = WHEEL_PALETTE[i % WHEEL_PALETTE.length];
+    const startPct = (i / n) * 100;
+    const endPct = ((i + 1) / n) * 100;
+    parts.push(color + " " + startPct.toFixed(3) + "% " + endPct.toFixed(3) + "%");
+  }
+  wheel.style.background = "conic-gradient(from 0deg, " + parts.join(", ") + ")";
+
+  // etiquetas con el folio: se posicionan girando con la ruleta,
+  // pero llevan una contra-rotación para que el texto siempre se vea derecho
+  const radius = 92;
+  for (let i = 0; i < n; i++) {
+    const centerAngle = i * segAngle + segAngle / 2; // grados en sentido horario desde arriba
+    const rad = centerAngle * Math.PI / 180;
+    const x = radius * Math.sin(rad);
+    const y = -radius * Math.cos(rad);
+
+    const pos = document.createElement("div");
+    pos.className = "wheel-label-pos";
+    pos.style.left = "calc(50% + " + x.toFixed(1) + "px)";
+    pos.style.top = "calc(50% + " + y.toFixed(1) + "px)";
+
+    const label = document.createElement("div");
+    label.className = "wheel-label";
+    label.style.transform = "rotate(0deg)";
+    label.textContent = "#" + finalists[i].folio;
+
+    pos.appendChild(label);
+    wheel.appendChild(pos);
+  }
+
+  // forzar reflow para que el "rotate(0deg)" quede aplicado antes de animar
+  void wheel.offsetWidth;
+}
+
+function spinWheelTo(winnerIndex, n) {
+  return new Promise((resolve) => {
+    const wheel = document.getElementById("wheel");
+    const segAngle = 360 / n;
+    const thetaWinner = winnerIndex * segAngle + segAngle / 2;
+    const extraSpins = 5 + secureRandomInt(3); // 5 a 7 vueltas completas
+    const finalRotation = extraSpins * 360 + ((360 - thetaWinner) % 360);
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      wheel.removeEventListener("transitionend", finish);
+      resolve();
+    };
+    wheel.addEventListener("transitionend", finish);
+    setTimeout(finish, 5200); // respaldo por si transitionend no dispara
+
+    const easing = "cubic-bezier(0.13,0.73,0.14,1)";
+    wheel.style.transition = "transform 4.6s " + easing;
+    wheel.style.transform = "rotate(" + finalRotation + "deg)";
+
+    // contra-rotación sincronizada para que el texto de las etiquetas quede siempre derecho
+    wheel.querySelectorAll(".wheel-label").forEach((label) => {
+      label.style.transition = "transform 4.6s " + easing;
+      label.style.transform = "rotate(" + (-finalRotation) + "deg)";
+    });
+  });
+}
+
 async function runDraw() {
   const list = allFolios();
   if (list.length === 0) { showToast("Todavía no hay folios para sortear"); return; }
 
   const btn = document.getElementById("btn-sortear");
   const stageLabel = document.getElementById("draw-stage-label");
-  const finalistsRow = document.getElementById("finalists-row");
+  const tableWrap = document.getElementById("finalists-table-wrap");
+  const tbody = document.getElementById("finalists-tbody");
+  const wheelWrap = document.getElementById("wheel-wrap");
   const folioEl = document.getElementById("winner-folio");
   const nameEl = document.getElementById("winner-name");
 
@@ -830,8 +968,9 @@ async function runDraw() {
   document.getElementById("finalist-count").disabled = true;
   document.getElementById("btn-copiar-ganador").style.display = "none";
   document.getElementById("notify-winner-block").style.display = "none";
-  finalistsRow.style.display = "none";
-  finalistsRow.innerHTML = "";
+  tableWrap.style.display = "none";
+  tbody.innerHTML = "";
+  wheelWrap.style.display = "none";
   folioEl.textContent = "—";
   nameEl.textContent = "";
   stageLabel.className = "draw-stage stage-1";
@@ -842,34 +981,36 @@ async function runDraw() {
     folioEl.textContent = "#" + r.folio;
     nameEl.textContent = r.comprador;
   });
+  folioEl.textContent = "—";
+  nameEl.textContent = "";
 
   const desiredFinalists = parseInt(document.getElementById("finalist-count").value, 10) || 8;
   const numFinalists = Math.max(1, Math.min(desiredFinalists, list.length));
   const finalists = pickRandomSubset(list, numFinalists);
 
-  stageLabel.textContent = "✨ Etapa 2 de 2 — ¡" + numFinalists + " finalistas! Girando la ruleta...";
+  // Revelar finalistas como tabla, con aparición escalonada
+  stageLabel.textContent = "✨ Etapa 2 de 2 — ¡" + numFinalists + " finalistas!";
   stageLabel.className = "draw-stage stage-2";
-  finalistsRow.style.display = "flex";
-  finalistsRow.innerHTML = finalists.map((f, i) =>
-    '<div class="finalist-chip" id="finalist-chip-' + i + '">#' + f.folio + '</div>'
+  tbody.innerHTML = finalists.map((f, i) =>
+    '<tr class="finalist-row-anim" id="finalist-row-' + i + '" style="animation-delay:' + (i * 90) + 'ms;">' +
+      '<td>' + (i + 1) + '</td><td class="num">#' + f.folio + '</td><td>' + escapeHtml(f.comprador) + '</td>' +
+    '</tr>'
   ).join("");
-  await sleep(450);
+  tableWrap.style.display = "block";
+  await sleep(numFinalists * 90 + 550);
 
-  // Etapa 2: ruleta entre finalistas, terminando en un ganador elegido de forma segura
+  // Preparar y mostrar la ruleta
+  stageLabel.textContent = "🎡 Girando la ruleta...";
+  buildWheel(finalists);
+  wheelWrap.style.display = "block";
+  await sleep(350);
+
   const winnerIndex = secureRandomInt(finalists.length);
-  const totalSteps = finalists.length * 3 + winnerIndex;
-  await spinRoulette(finalists, totalSteps, (idx, r) => {
-    document.querySelectorAll(".finalist-chip").forEach(c => c.classList.remove("active"));
-    const chip = document.getElementById("finalist-chip-" + idx);
-    if (chip) chip.classList.add("active");
-    folioEl.textContent = "#" + r.folio;
-    nameEl.textContent = r.comprador;
-  });
+  await spinWheelTo(winnerIndex, finalists.length);
 
   const winner = finalists[winnerIndex];
-  document.querySelectorAll(".finalist-chip").forEach(c => c.classList.remove("active"));
-  const winnerChip = document.getElementById("finalist-chip-" + winnerIndex);
-  if (winnerChip) winnerChip.classList.add("winner");
+  const winnerRow = document.getElementById("finalist-row-" + winnerIndex);
+  if (winnerRow) winnerRow.classList.add("finalist-row-winner");
 
   stageLabel.textContent = "🏆 ¡Tenemos ganador!";
   stageLabel.className = "draw-stage stage-done";
