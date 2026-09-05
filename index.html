@@ -124,6 +124,32 @@
   .winner-box .folio-big { font-size: 54px; font-weight: 800; color: var(--pink); margin: 10px 0 4px; }
   .winner-box .name-big { font-size: 22px; font-weight: 700; color: var(--purple); }
 
+  .draw-stage {
+    text-align: center; font-weight: 700; font-size: 14px;
+    margin: 4px 0 14px; color: var(--purple-light); min-height: 20px;
+    transition: color 0.2s ease;
+  }
+  .draw-stage.stage-2 { color: var(--pink); }
+  .draw-stage.stage-done { color: var(--teal); }
+
+  .finalists-row {
+    display: none; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px;
+  }
+  .finalist-chip {
+    background: var(--cream); border: 2px solid var(--line); border-radius: 12px;
+    padding: 8px 12px; font-weight: 800; font-size: 14px; color: var(--purple);
+    transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  .finalist-chip.active {
+    background: var(--pink); color: #fff; border-color: var(--pink); transform: scale(1.18);
+  }
+  .finalist-chip.winner {
+    background: var(--gold); color: var(--purple); border-color: var(--gold);
+    transform: scale(1.22); box-shadow: 0 4px 14px rgba(255,201,60,0.55);
+  }
+
+  .notify-winner-block { margin-top: 14px; display: none; }
+
   nav {
     position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
     box-shadow: 0 -3px 14px rgba(42,23,80,0.12); display: flex; max-width: 480px; margin: 0 auto;
@@ -175,6 +201,13 @@
           <button type="button" id="qty-plus">+</button>
         </div>
 
+        <div style="margin:12px 0 4px;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="nombres-separados" style="width:auto;margin:0;">
+          <label for="nombres-separados" style="margin:0;">¿Los folios van a nombres diferentes?</label>
+        </div>
+        <div class="hint">Úsalo cuando una sola compra incluya folios para varias personas. El precio sigue siendo el del paquete.</div>
+        <div id="nombres-folios" style="display:none;margin-top:8px;"></div>
+
         <div class="price-preview">
           Total a cobrar
           <b id="price-preview-value">$60</b>
@@ -221,15 +254,28 @@
       <div class="card">
         <h2>🗓️ Sorteo digital</h2>
         <p style="font-size:14px; color:var(--purple-light); line-height:1.4;">
-          Antes de sortear, comparte la lista de folios (pestaña Folios) para que todos puedan verificar sus números. El sorteo elige un folio al azar entre todos los registrados.
+          Antes de sortear, comparte la lista de folios (pestaña Folios) para que todos puedan verificar sus números. El sorteo tiene dos etapas: primero recorre el universo completo de folios y elige finalistas al azar; luego una ruleta decide al ganador entre esos finalistas. Todo con números aleatorios generados en tu propio navegador.
         </p>
+
+        <label for="finalist-count">Finalistas para la ruleta</label>
+        <input type="number" id="finalist-count" min="2" max="50" value="8"
+          style="width:100%;padding:12px 14px;border-radius:12px;border:2px solid var(--line);font-size:16px;margin-bottom:6px;background:var(--cream);color:var(--purple);">
+        <div class="hint" id="finalist-count-hint" style="margin:-2px 0 16px;">Si hay menos folios que este número, se usan todos.</div>
+
+        <div class="draw-stage" id="draw-stage-label">Listo para comenzar</div>
+        <div class="finalists-row" id="finalists-row"></div>
         <div class="winner-box" id="winner-box">
           <div style="font-size:14px; color:var(--purple-light);">Folio ganador</div>
           <div class="folio-big" id="winner-folio">—</div>
           <div class="name-big" id="winner-name">Aún no se ha sorteado</div>
         </div>
         <button class="btn btn-gold" id="btn-sortear">🎉 Realizar sorteo</button>
-        <button class="btn btn-outline" id="btn-copiar-ganador" style="display:none;">Copiar resultado</button>
+        <button class="btn btn-outline" id="btn-copiar-ganador" style="display:none;">Copiar resultado (para el grupo)</button>
+
+        <div class="notify-winner-block" id="notify-winner-block">
+          <div class="hint" style="text-align:center; margin:0 0 6px;">Avisarle en privado al ganador</div>
+          <div class="confirm-actions" id="notify-winner-actions" style="text-align:center;"></div>
+        </div>
       </div>
     </div>
   </main>
@@ -290,6 +336,7 @@ async function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) state = JSON.parse(raw);
+    normalizeSales();
   } catch (e) {
     state = { lastFolioNumber: 0, sales: [] };
     showToast("No se pudieron cargar los datos guardados.");
@@ -307,11 +354,22 @@ async function saveState() {
   }
 }
 
+function normalizeSales() {
+  for (const sale of state.sales) {
+    if (!Array.isArray(sale.nombres) || sale.nombres.length !== sale.folios.length) {
+      sale.nombres = sale.folios.map(() => sale.comprador);
+    } else {
+      sale.nombres = sale.nombres.map(n => String(n || sale.comprador));
+    }
+  }
+}
+
 function allFolios() {
   const list = [];
   for (const sale of state.sales) {
-    for (const f of sale.folios) {
-      list.push({ folio: f, comprador: sale.comprador, telefono: sale.telefono || "", fecha: sale.fecha, saleId: sale.id });
+    const nombres = Array.isArray(sale.nombres) ? sale.nombres : sale.folios.map(() => sale.comprador);
+    for (let i = 0; i < sale.folios.length; i++) {
+      list.push({ folio: sale.folios[i], comprador: nombres[i] || sale.comprador, telefono: sale.telefono || "", fecha: sale.fecha, saleId: sale.id });
     }
   }
   return list;
@@ -359,6 +417,35 @@ function smsLink(sale) {
   return "sms:+" + phone + "?body=" + encodeURIComponent(confirmationText(sale));
 }
 
+function winnerNotifyText(winner) {
+  return "Hola " + winner.comprador + ", tengo una excelente noticia: tu folio #" + winner.folio +
+    " resultó ganador de la Rifa de Santiago!\n" +
+    "El premio es la bocina portátil Stromberg Mega-Twin Bluetooth.\n" +
+    "Nos vamos a poner en contacto contigo para coordinar la entrega. Muchas felicidades!";
+}
+function waLinkWinner(winner) {
+  const phone = sanitizePhone(winner.telefono);
+  if (!phone) return null;
+  return "https://wa.me/" + phone + "?text=" + encodeURIComponent(winnerNotifyText(winner));
+}
+function smsLinkWinner(winner) {
+  const phone = sanitizePhone(winner.telefono);
+  if (!phone) return null;
+  return "sms:+" + phone + "?body=" + encodeURIComponent(winnerNotifyText(winner));
+}
+function showNotifyWinnerBlock(winner) {
+  const block = document.getElementById("notify-winner-block");
+  const actions = document.getElementById("notify-winner-actions");
+  const wa = waLinkWinner(winner), sm = smsLinkWinner(winner);
+  actions.innerHTML = "";
+  if (wa) actions.innerHTML += '<a class="btn-sm" style="background:#25D366;color:#fff;text-decoration:none;" href="' + wa + '" target="_blank" rel="noopener">📲 Avisar por WhatsApp</a>';
+  if (sm) actions.innerHTML += '<a class="btn-sm" style="background:var(--purple);color:#fff;text-decoration:none;" href="' + sm + '">💬 Avisar por SMS</a>';
+  if (!wa && !sm) {
+    actions.innerHTML = '<div class="hint" style="margin:0;">No hay teléfono guardado para ' + escapeHtml(winner.comprador) + '. Ve a Folios, agrégalo y repite el sorteo.</div>';
+  }
+  block.style.display = "block";
+}
+
 // --- Navegación ---
 document.querySelectorAll("nav button").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -378,6 +465,22 @@ function updateQtyUI() {
 document.getElementById("qty-minus").addEventListener("click", () => { if (qty > 1) { qty--; updateQtyUI(); } });
 document.getElementById("qty-plus").addEventListener("click", () => { if (qty < 50) { qty++; updateQtyUI(); } });
 
+function renderNombreInputs() {
+  const box = document.getElementById("nombres-folios");
+  const checked = document.getElementById("nombres-separados").checked;
+  if (!checked || qty < 2) { box.style.display = "none"; box.innerHTML = ""; return; }
+  box.style.display = "block";
+  let html = '<div class="hint" style="margin:6px 0;">Indica el nombre de cada folio:</div>';
+  for (let i = 0; i < qty; i++) {
+    html += '<input type="text" id="nombre-folio-' + i + '" placeholder="Nombre para el folio ' + (i + 1) + '" style="margin-bottom:7px;">';
+  }
+  box.innerHTML = html;
+}
+
+document.getElementById("nombres-separados").addEventListener("change", renderNombreInputs);
+const originalUpdateQtyUI = updateQtyUI;
+updateQtyUI = function() { originalUpdateQtyUI(); renderNombreInputs(); };
+
 document.getElementById("btn-vender").addEventListener("click", async () => {
   const nombreInput = document.getElementById("comprador");
   const telInput = document.getElementById("telefono");
@@ -391,6 +494,17 @@ document.getElementById("btn-vender").addEventListener("click", async () => {
     return;
   }
 
+  let nombres = Array(qty).fill(nombre);
+  if (document.getElementById("nombres-separados").checked && qty > 1) {
+    nombres = [];
+    for (let i = 0; i < qty; i++) {
+      const input = document.getElementById("nombre-folio-" + i);
+      const n = input ? input.value.trim() : "";
+      if (!n) { showToast("Escribe el nombre del folio " + (i + 1)); if (input) input.focus(); return; }
+      nombres.push(n);
+    }
+  }
+
   const folios = generateRandomFolios(qty);
   const sale = {
     id: Date.now().toString(36),
@@ -399,7 +513,8 @@ document.getElementById("btn-vender").addEventListener("click", async () => {
     cantidad: qty,
     precio: calcPrecio(qty),
     fecha: new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "short" }),
-    folios
+    folios,
+    nombres
   };
   state.sales.push(sale);
   const saved = await saveState();
@@ -470,21 +585,40 @@ function renderSaleCard(sale) {
   if (wa) actions += '<a class="btn-sm" style="background:#25D366;color:#fff;text-decoration:none;" href="' + wa + '" target="_blank" rel="noopener">📲</a>';
   if (sm) actions += '<a class="btn-sm" style="background:var(--purple);color:#fff;text-decoration:none;" href="' + sm + '">💬</a>';
 
+  const nombres = Array.isArray(sale.nombres) ? sale.nombres : sale.folios.map(() => sale.comprador);
+  let detalle = '';
+  if (sale.folios.length > 1) {
+    detalle = '<div style="margin:7px 0 2px;font-size:13px;line-height:1.7;">' +
+      sale.folios.map((f, i) => '<div><b>#' + f + '</b> — ' + escapeHtml(nombres[i] || sale.comprador) + '</div>').join('') +
+      '</div>';
+  }
   return '<div class="sale-card">' +
     '<div class="sale-folios">' + folioRangeText(sale.folios) + '</div>' +
-    '<div class="sale-name">' + escapeHtml(sale.comprador) + '</div>' +
+    '<div class="sale-name">Compra de ' + escapeHtml(sale.comprador) + '</div>' +
+    detalle +
     '<div class="sale-meta">' + (sale.telefono ? escapeHtml(sale.telefono) + " · " : "") + sale.fecha + " · $" + sale.precio + '</div>' +
     '<div class="sale-actions">' + actions + '</div>' +
   '</div>';
 }
 
 function renderEditCard(sale) {
+  const nombres = Array.isArray(sale.nombres) ? sale.nombres : sale.folios.map(() => sale.comprador);
+  let nombresHtml = '';
+  for (let i = 0; i < sale.folios.length; i++) {
+    nombresHtml += '<div style="display:flex;align-items:center;gap:7px;margin-top:7px;">' +
+      '<span style="min-width:45px;font-weight:800;color:var(--teal);">#' + sale.folios[i] + '</span>' +
+      '<input type="text" id="edit-folio-name-' + sale.id + '-' + i + '" value="' + escapeHtml(nombres[i] || sale.comprador) + '" placeholder="Nombre del participante">' +
+    '</div>';
+  }
   return '<div class="sale-card">' +
     '<div class="sale-folios">' + folioRangeText(sale.folios) + '</div>' +
-    '<div class="edit-row" style="margin-top:8px;">' +
+    '<div class="hint" style="margin-top:7px;">Quién pagó</div>' +
+    '<div class="edit-row" style="margin-top:3px;">' +
       '<input type="text" id="edit-name-' + sale.id + '" value="' + escapeHtml(sale.comprador) + '" placeholder="Nombre">' +
       '<input type="tel" id="edit-phone-' + sale.id + '" value="' + escapeHtml(sale.telefono || "") + '" placeholder="Teléfono">' +
     '</div>' +
+    '<div class="hint" style="margin-top:8px;">Nombre de cada folio</div>' +
+    nombresHtml +
     '<div class="sale-actions">' +
       '<button class="btn-sm" style="background:var(--teal);color:#fff;" data-save="' + sale.id + '">Guardar</button>' +
       '<button class="btn-sm" style="background:var(--cream);color:var(--purple);" data-cancel="' + sale.id + '">Cancelar</button>' +
@@ -498,8 +632,16 @@ async function onSaveEdit(id) {
   const name = document.getElementById("edit-name-" + id).value.trim();
   const phone = document.getElementById("edit-phone-" + id).value.trim();
   if (!name) { showToast("El nombre no puede quedar vacío"); return; }
+  const nombres = [];
+  for (let i = 0; i < sale.folios.length; i++) {
+    const input = document.getElementById("edit-folio-name-" + id + "-" + i);
+    const n = input ? input.value.trim() : "";
+    if (!n) { showToast("El nombre del folio #" + sale.folios[i] + " no puede quedar vacío"); if (input) input.focus(); return; }
+    nombres.push(n);
+  }
   sale.comprador = name;
   sale.telefono = phone;
+  sale.nombres = nombres;
   editingId = null;
   await saveState();
   renderFolios();
@@ -628,40 +770,119 @@ document.getElementById("restore-file").addEventListener("change", (e) => {
   e.target.value = "";
 });
 
-// --- Sorteo ---
-document.getElementById("btn-sortear").addEventListener("click", () => {
+// --- Sorteo (dos etapas: universo -> finalistas -> ruleta) ---
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function easeOutQuad(t) { return t * (2 - t); }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+function spinFlicker(pool, ticks, startDelay, endDelay, onTick) {
+  return new Promise((resolve) => {
+    let i = 0;
+    function next() {
+      const r = pool[Math.floor(Math.random() * pool.length)];
+      onTick(r);
+      i++;
+      if (i >= ticks) { resolve(); return; }
+      const delay = startDelay + (endDelay - startDelay) * easeOutQuad(i / ticks);
+      setTimeout(next, delay);
+    }
+    next();
+  });
+}
+
+function spinRoulette(items, totalSteps, onStep) {
+  return new Promise((resolve) => {
+    let step = 0;
+    function next() {
+      const idx = step % items.length;
+      onStep(idx, items[idx]);
+      step++;
+      if (step > totalSteps) { resolve(); return; }
+      const delay = 60 + (650 - 60) * easeOutCubic(step / totalSteps);
+      setTimeout(next, delay);
+    }
+    next();
+  });
+}
+
+function pickRandomSubset(list, n) {
+  const pool = list.slice();
+  const result = [];
+  for (let i = 0; i < n && pool.length > 0; i++) {
+    const idx = secureRandomInt(pool.length);
+    result.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return result;
+}
+
+async function runDraw() {
   const list = allFolios();
   if (list.length === 0) { showToast("Todavía no hay folios para sortear"); return; }
-  const btn = document.getElementById("btn-sortear");
-  btn.disabled = true;
-  document.getElementById("btn-copiar-ganador").style.display = "none";
 
+  const btn = document.getElementById("btn-sortear");
+  const stageLabel = document.getElementById("draw-stage-label");
+  const finalistsRow = document.getElementById("finalists-row");
   const folioEl = document.getElementById("winner-folio");
   const nameEl = document.getElementById("winner-name");
-  let ticks = 0;
-  const maxTicks = 18;
-  const interval = setInterval(() => {
-    const r = list[Math.floor(Math.random() * list.length)];
+
+  btn.disabled = true;
+  document.getElementById("finalist-count").disabled = true;
+  document.getElementById("btn-copiar-ganador").style.display = "none";
+  document.getElementById("notify-winner-block").style.display = "none";
+  finalistsRow.style.display = "none";
+  finalistsRow.innerHTML = "";
+  folioEl.textContent = "—";
+  nameEl.textContent = "";
+  stageLabel.className = "draw-stage stage-1";
+
+  // Etapa 1: recorrido por todo el universo de folios
+  stageLabel.textContent = "🌌 Etapa 1 de 2 — Explorando el universo de folios...";
+  await spinFlicker(list, 32, 45, 130, (r) => {
     folioEl.textContent = "#" + r.folio;
     nameEl.textContent = r.comprador;
-    ticks++;
-    if (ticks >= maxTicks) {
-      clearInterval(interval);
-      const winner = pickFairWinner(list);
-      folioEl.textContent = "#" + winner.folio;
-      nameEl.textContent = "🎉 " + winner.comprador + " 🎉";
-      lastWinner = winner;
-      btn.disabled = false;
-      document.getElementById("btn-copiar-ganador").style.display = "block";
-    }
-  }, 90);
-});
+  });
 
-function pickFairWinner(list) {
-  const arr = new Uint32Array(1);
-  crypto.getRandomValues(arr);
-  return list[arr[0] % list.length];
+  const desiredFinalists = parseInt(document.getElementById("finalist-count").value, 10) || 8;
+  const numFinalists = Math.max(1, Math.min(desiredFinalists, list.length));
+  const finalists = pickRandomSubset(list, numFinalists);
+
+  stageLabel.textContent = "✨ Etapa 2 de 2 — ¡" + numFinalists + " finalistas! Girando la ruleta...";
+  stageLabel.className = "draw-stage stage-2";
+  finalistsRow.style.display = "flex";
+  finalistsRow.innerHTML = finalists.map((f, i) =>
+    '<div class="finalist-chip" id="finalist-chip-' + i + '">#' + f.folio + '</div>'
+  ).join("");
+  await sleep(450);
+
+  // Etapa 2: ruleta entre finalistas, terminando en un ganador elegido de forma segura
+  const winnerIndex = secureRandomInt(finalists.length);
+  const totalSteps = finalists.length * 3 + winnerIndex;
+  await spinRoulette(finalists, totalSteps, (idx, r) => {
+    document.querySelectorAll(".finalist-chip").forEach(c => c.classList.remove("active"));
+    const chip = document.getElementById("finalist-chip-" + idx);
+    if (chip) chip.classList.add("active");
+    folioEl.textContent = "#" + r.folio;
+    nameEl.textContent = r.comprador;
+  });
+
+  const winner = finalists[winnerIndex];
+  document.querySelectorAll(".finalist-chip").forEach(c => c.classList.remove("active"));
+  const winnerChip = document.getElementById("finalist-chip-" + winnerIndex);
+  if (winnerChip) winnerChip.classList.add("winner");
+
+  stageLabel.textContent = "🏆 ¡Tenemos ganador!";
+  stageLabel.className = "draw-stage stage-done";
+  folioEl.textContent = "#" + winner.folio;
+  nameEl.textContent = "🎉 " + winner.comprador + " 🎉";
+  lastWinner = winner;
+  btn.disabled = false;
+  document.getElementById("finalist-count").disabled = false;
+  document.getElementById("btn-copiar-ganador").style.display = "block";
+  showNotifyWinnerBlock(winner);
 }
+
+document.getElementById("btn-sortear").addEventListener("click", runDraw);
 
 document.getElementById("btn-copiar-ganador").addEventListener("click", async () => {
   if (!lastWinner) return;
@@ -672,6 +893,20 @@ document.getElementById("btn-copiar-ganador").addEventListener("click", async ()
 });
 
 function render() { renderFolios(); }
+
+const FINALIST_PREF_KEY = "rifa-santiago-finalist-count";
+(function loadFinalistPref() {
+  try {
+    const saved = localStorage.getItem(FINALIST_PREF_KEY);
+    if (saved) document.getElementById("finalist-count").value = saved;
+  } catch (e) { /* si falla, se queda el valor por defecto */ }
+})();
+document.getElementById("finalist-count").addEventListener("change", (e) => {
+  let v = parseInt(e.target.value, 10);
+  if (!v || v < 1) v = 8;
+  e.target.value = v;
+  try { localStorage.setItem(FINALIST_PREF_KEY, String(v)); } catch (err) {}
+});
 
 updateQtyUI();
 loadState();

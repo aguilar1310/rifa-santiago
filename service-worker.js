@@ -1,4 +1,4 @@
-const CACHE_NAME = "rifa-santiago-v1";
+const CACHE_NAME = "rifa-santiago-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
