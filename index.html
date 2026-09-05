@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Rifa de Santiago</title>
+<style>
+  :root {
+    --purple: #2A1750;
+    --purple-light: #4A1D6E;
+    --pink: #FF3E7F;
+    --gold: #FFC93C;
+    --teal: #17B8A6;
+    --cream: #FFF8ED;
+    --line: #E7DFCF;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--purple);
+    height: 100%;
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--cream);
+  }
+  header {
+    background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
+    color: var(--cream);
+    padding: 22px 20px 18px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 24px; font-weight: 800; color: var(--gold); }
+  header p { margin: 4px 0 0; font-size: 13px; color: #E7D6F5; }
+  main { flex: 1; padding: 18px 16px 90px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 3px 14px rgba(42,23,80,0.08);
+    margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 17px; color: var(--purple); }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--purple-light); margin-bottom: 6px; }
+  input[type=text], input[type=tel] {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 2px solid var(--line);
+    font-size: 16px;
+    margin-bottom: 16px;
+    background: var(--cream);
+    color: var(--purple);
+  }
+  input[type=text]:focus, input[type=tel]:focus { outline: none; border-color: var(--teal); }
+  .hint { font-size: 11px; color: var(--purple-light); margin: -10px 0 14px; }
+
+  .stepper { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 16px; }
+  .stepper button {
+    width: 46px; height: 46px; border-radius: 50%; border: none;
+    background: var(--purple); color: #fff; font-size: 22px; font-weight: 700; cursor: pointer;
+  }
+  .stepper button:active { transform: scale(0.94); }
+  .stepper .qty { font-size: 30px; font-weight: 800; min-width: 46px; text-align: center; }
+
+  .price-preview {
+    text-align: center; background: var(--cream); border-radius: 12px;
+    padding: 12px; margin-bottom: 16px; font-size: 15px;
+  }
+  .price-preview b { font-size: 26px; color: var(--pink); display:block; margin-top:2px; }
+
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 999px;
+    padding: 15px; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center;
+  }
+  .btn-primary { background: var(--pink); color: #fff; }
+  .btn-gold { background: var(--gold); color: var(--purple); }
+  .btn-teal { background: var(--teal); color: #fff; }
+  .btn-outline { background: transparent; color: var(--purple); border: 2px solid var(--purple); }
+  .btn + .btn { margin-top: 10px; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-sm {
+    display: inline-block; width: auto; padding: 8px 14px; font-size: 13px;
+    border-radius: 999px; border: none; font-weight: 700; cursor: pointer; margin: 3px 4px 0 0;
+  }
+
+  .confirm-box {
+    background: #EAFBF7; border: 2px dashed var(--teal); border-radius: 14px;
+    padding: 14px; margin-top: 14px; font-size: 14px; text-align: center; display: none;
+  }
+  .confirm-box b { display:block; font-size: 18px; color: var(--purple); margin: 4px 0; }
+  .confirm-actions { margin-top: 10px; }
+
+  .stats-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .stat {
+    flex: 1; background: #fff; border-radius: 14px; padding: 12px; text-align: center;
+    box-shadow: 0 3px 14px rgba(42,23,80,0.08);
+  }
+  .stat .n { font-size: 22px; font-weight: 800; color: var(--pink); }
+  .stat .l { font-size: 11px; color: var(--purple-light); font-weight: 600; }
+
+  .sale-card {
+    border: 2px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px;
+  }
+  .sale-folios { font-weight: 800; color: var(--teal); font-size: 15px; }
+  .sale-name { font-weight: 700; font-size: 15px; margin-top: 2px; }
+  .sale-meta { font-size: 12px; color: var(--purple-light); margin-top: 2px; }
+  .sale-actions { margin-top: 8px; }
+  .edit-row input { margin-bottom: 8px; }
+
+  .empty-msg { text-align: center; color: var(--purple-light); font-size: 14px; padding: 30px 10px; }
+
+  .winner-box { text-align: center; padding: 30px 16px; }
+  .winner-box .folio-big { font-size: 54px; font-weight: 800; color: var(--pink); margin: 10px 0 4px; }
+  .winner-box .name-big { font-size: 22px; font-weight: 700; color: var(--purple); }
+
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+    box-shadow: 0 -3px 14px rgba(42,23,80,0.12); display: flex; max-width: 480px; margin: 0 auto;
+  }
+  nav button { flex: 1; background: none; border: none; padding: 12px 4px 10px; font-size: 12px; font-weight: 700; color: var(--purple-light); cursor: pointer; }
+  nav button .ic { display: block; font-size: 20px; margin-bottom: 2px; }
+  nav button.active { color: var(--pink); }
+
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--purple); color: var(--cream); padding: 10px 20px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; opacity: 0; transition: opacity 0.25s; pointer-events: none;
+    z-index: 50; white-space: nowrap; max-width: 90%; text-align:center;
+  }
+  .toast.show { opacity: 1; }
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2A1750">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rifa Santiago">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🎟️ Rifa de Santiago</h1>
+    <p>Control de folios — Bocina Stromberg Mega-Twin</p>
+  </header>
+
+  <main>
+    <!-- VENDER -->
+    <div class="view active" id="view-vender">
+      <div class="card">
+        <h2>Registrar venta</h2>
+        <label for="comprador">¿Quién compra?</label>
+        <input type="text" id="comprador" placeholder="Nombre del tío, primo o amigo">
+
+        <label for="telefono">Teléfono (opcional)</label>
+        <input type="tel" id="telefono" placeholder="Ej. 2281234567">
+        <div class="hint">Con el teléfono puedes mandarle su folio por WhatsApp o SMS.</div>
+
+        <label>¿Cuántos folios?</label>
+        <div class="stepper">
+          <button type="button" id="qty-minus">–</button>
+          <div class="qty" id="qty-value">1</div>
+          <button type="button" id="qty-plus">+</button>
+        </div>
+
+        <div class="price-preview">
+          Total a cobrar
+          <b id="price-preview-value">$60</b>
+        </div>
+
+        <button class="btn btn-primary" id="btn-vender">Registrar y generar folio</button>
+
+        <div class="confirm-box" id="confirm-box">
+          ¡Listo! Folios asignados a <span id="confirm-name"></span>
+          <b id="confirm-folios"></b>
+          <div class="confirm-actions" id="confirm-actions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOLIOS -->
+    <div class="view" id="view-folios">
+      <div class="stats-row">
+        <div class="stat"><div class="n" id="stat-folios">0</div><div class="l">Folios vendidos</div></div>
+        <div class="stat"><div class="n" id="stat-total">$0</div><div class="l">Recaudado</div></div>
+      </div>
+      <div class="card" style="padding:12px 14px;">
+        <div style="font-size:12px;text-align:center;color:var(--purple-light);">
+          💾 Los datos se guardan automáticamente en este dispositivo.
+          Usa <b>Crear respaldo</b> para conservar una copia adicional.
+        </div>
+      </div>
+      <div class="card">
+        <h2>Folios participantes</h2>
+        <div id="folios-list"></div>
+      </div>
+      <button class="btn btn-teal" id="btn-copiar">Copiar lista (para compartir)</button>
+      <button class="btn btn-outline" id="btn-csv">Exportar CSV</button>
+      <button class="btn btn-outline" id="btn-backup">💾 Crear respaldo</button>
+      <button class="btn btn-outline" id="btn-restore">📥 Restaurar respaldo</button>
+      <input type="file" id="restore-file" accept=".json,application/json" style="display:none">
+      <div class="hint" style="margin:10px 0 0;text-align:center;">
+        Consejo: crea un respaldo después de cada tanda de ventas.
+      </div>
+    </div>
+
+    <!-- SORTEO -->
+    <div class="view" id="view-sorteo">
+      <div class="card">
+        <h2>🗓️ Sorteo digital</h2>
+        <p style="font-size:14px; color:var(--purple-light); line-height:1.4;">
+          Antes de sortear, comparte la lista de folios (pestaña Folios) para que todos puedan verificar sus números. El sorteo elige un folio al azar entre todos los registrados.
+        </p>
+        <div class="winner-box" id="winner-box">
+          <div style="font-size:14px; color:var(--purple-light);">Folio ganador</div>
+          <div class="folio-big" id="winner-folio">—</div>
+          <div class="name-big" id="winner-name">Aún no se ha sorteado</div>
+        </div>
+        <button class="btn btn-gold" id="btn-sortear">🎉 Realizar sorteo</button>
+        <button class="btn btn-outline" id="btn-copiar-ganador" style="display:none;">Copiar resultado</button>
+      </div>
+    </div>
+  </main>
+
+  <nav>
+    <button class="active" data-view="vender"><span class="ic">➕</span>Vender</button>
+    <button data-view="folios"><span class="ic">📋</span>Folios</button>
+    <button data-view="sorteo"><span class="ic">🎉</span>Sorteo</button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const STORAGE_KEY = "rifa-santiago-folios";
+let state = { lastFolioNumber: 0, sales: [] };
+let qty = 1;
+let editingId = null;
+let lastWinner = null;
+
+function calcPrecio(q) {
+  if (q <= 1) return 60;
+  return 50 * q;
+}
+function pad(n) { return String(n).padStart(3, "0"); }
+const MAX_FOLIO = 999;
+
+function usedFolioSet() {
+  const used = new Set();
+  for (const sale of state.sales) for (const f of sale.folios) used.add(f);
+  return used;
+}
+
+function secureRandomInt(maxExclusive) {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0] % maxExclusive;
+}
+
+function generateRandomFolios(qty) {
+  const used = usedFolioSet();
+  const folios = [];
+  let attempts = 0;
+  const maxAttempts = 30000;
+  while (folios.length < qty && attempts < maxAttempts) {
+    attempts++;
+    const candidate = pad(1 + secureRandomInt(MAX_FOLIO));
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      folios.push(candidate);
+    }
+  }
+  folios.sort();
+  return folios;
+}
+
+async function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch (e) {
+    state = { lastFolioNumber: 0, sales: [] };
+    showToast("No se pudieron cargar los datos guardados.");
+  }
+  render();
+}
+
+async function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    showToast("No se pudo guardar. Revisa el espacio disponible.");
+    return false;
+  }
+}
+
+function allFolios() {
+  const list = [];
+  for (const sale of state.sales) {
+    for (const f of sale.folios) {
+      list.push({ folio: f, comprador: sale.comprador, telefono: sale.telefono || "", fecha: sale.fecha, saleId: sale.id });
+    }
+  }
+  return list;
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function sanitizePhone(raw) {
+  let digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) digits = "52" + digits;
+  return digits;
+}
+
+function folioRangeText(folios) {
+  return folios.length === 1 ? ("#" + folios[0]) : ("#" + folios.join(", #"));
+}
+
+function confirmationText(sale) {
+  return "¡Hola " + sale.comprador + "! Gracias por apoyar la Rifa de Santiago.\n" +
+    "Tu(s) folio(s): " + folioRangeText(sale.folios) + "\n" +
+    "El sorteo es el 13 de septiembre. Los folios participantes se publicarán antes del sorteo.\n" +
+    "¡Mucha suerte!";
+}
+
+function waLink(sale) {
+  const phone = sanitizePhone(sale.telefono);
+  if (!phone) return null;
+  return "https://wa.me/" + phone + "?text=" + encodeURIComponent(confirmationText(sale));
+}
+function smsLink(sale) {
+  const phone = sanitizePhone(sale.telefono);
+  if (!phone) return null;
+  return "sms:+" + phone + "?body=" + encodeURIComponent(confirmationText(sale));
+}
+
+// --- Navegación ---
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + btn.dataset.view).classList.add("active");
+    render();
+  });
+});
+
+// --- Vender ---
+function updateQtyUI() {
+  document.getElementById("qty-value").textContent = qty;
+  document.getElementById("price-preview-value").textContent = "$" + calcPrecio(qty);
+}
+document.getElementById("qty-minus").addEventListener("click", () => { if (qty > 1) { qty--; updateQtyUI(); } });
+document.getElementById("qty-plus").addEventListener("click", () => { if (qty < 50) { qty++; updateQtyUI(); } });
+
+document.getElementById("btn-vender").addEventListener("click", async () => {
+  const nombreInput = document.getElementById("comprador");
+  const telInput = document.getElementById("telefono");
+  const nombre = nombreInput.value.trim();
+  const telefono = telInput.value.trim();
+  if (!nombre) { showToast("Escribe el nombre del comprador"); nombreInput.focus(); return; }
+
+  const disponibles = MAX_FOLIO - usedFolioSet().size;
+  if (qty > disponibles) {
+    showToast("Solo quedan " + disponibles + " folios disponibles");
+    return;
+  }
+
+  const folios = generateRandomFolios(qty);
+  const sale = {
+    id: Date.now().toString(36),
+    comprador: nombre,
+    telefono: telefono,
+    cantidad: qty,
+    precio: calcPrecio(qty),
+    fecha: new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "short" }),
+    folios
+  };
+  state.sales.push(sale);
+  const saved = await saveState();
+  if (!saved) {
+    state.sales.pop();
+    return;
+  }
+
+  document.getElementById("confirm-name").textContent = nombre;
+  document.getElementById("confirm-folios").textContent = folioRangeText(folios);
+
+  const actions = document.getElementById("confirm-actions");
+  actions.innerHTML = "";
+  const wa = waLink(sale), sm = smsLink(sale);
+  if (wa) {
+    actions.innerHTML += '<a class="btn-sm" style="background:#25D366;color:#fff;text-decoration:none;" href="' + wa + '" target="_blank" rel="noopener">📲 WhatsApp</a>';
+  }
+  if (sm) {
+    actions.innerHTML += '<a class="btn-sm" style="background:var(--purple);color:#fff;text-decoration:none;" href="' + sm + '">💬 SMS</a>';
+  }
+  if (!wa && !sm) {
+    actions.innerHTML = '<div class="hint" style="margin:6px 0 0;">Agrega un teléfono la próxima vez para poder enviar confirmación.</div>';
+  }
+  document.getElementById("confirm-box").style.display = "block";
+
+  nombreInput.value = "";
+  telInput.value = "";
+  qty = 1;
+  updateQtyUI();
+  render();
+});
+
+// --- Folios: listar / editar / borrar ---
+function renderFolios() {
+  const list = allFolios();
+  document.getElementById("stat-folios").textContent = list.length;
+  const total = state.sales.reduce((sum, s) => sum + s.precio, 0);
+  document.getElementById("stat-total").textContent = "$" + total;
+
+  const container = document.getElementById("folios-list");
+  if (state.sales.length === 0) {
+    container.innerHTML = '<div class="empty-msg">Todavía no hay folios registrados.<br>Ve a la pestaña "Vender" para empezar.</div>';
+    return;
+  }
+
+  let html = "";
+  const salesSorted = state.sales.slice().reverse();
+  for (const sale of salesSorted) {
+    if (editingId === sale.id) {
+      html += renderEditCard(sale);
+    } else {
+      html += renderSaleCard(sale);
+    }
+  }
+  container.innerHTML = html;
+
+  // listeners
+  container.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => { editingId = b.dataset.edit; renderFolios(); }));
+  container.querySelectorAll("[data-delete]").forEach(b => b.addEventListener("click", () => onDelete(b.dataset.delete)));
+  container.querySelectorAll("[data-save]").forEach(b => b.addEventListener("click", () => onSaveEdit(b.dataset.save)));
+  container.querySelectorAll("[data-cancel]").forEach(b => b.addEventListener("click", () => { editingId = null; renderFolios(); }));
+}
+
+function renderSaleCard(sale) {
+  const wa = waLink(sale), sm = smsLink(sale);
+  let actions = '<button class="btn-sm" style="background:var(--cream);color:var(--purple);" data-edit="' + sale.id + '">✏️ Editar</button>';
+  actions += '<button class="btn-sm" style="background:#FDE7EC;color:var(--pink);" data-delete="' + sale.id + '">🗑️ Borrar</button>';
+  if (wa) actions += '<a class="btn-sm" style="background:#25D366;color:#fff;text-decoration:none;" href="' + wa + '" target="_blank" rel="noopener">📲</a>';
+  if (sm) actions += '<a class="btn-sm" style="background:var(--purple);color:#fff;text-decoration:none;" href="' + sm + '">💬</a>';
+
+  return '<div class="sale-card">' +
+    '<div class="sale-folios">' + folioRangeText(sale.folios) + '</div>' +
+    '<div class="sale-name">' + escapeHtml(sale.comprador) + '</div>' +
+    '<div class="sale-meta">' + (sale.telefono ? escapeHtml(sale.telefono) + " · " : "") + sale.fecha + " · $" + sale.precio + '</div>' +
+    '<div class="sale-actions">' + actions + '</div>' +
+  '</div>';
+}
+
+function renderEditCard(sale) {
+  return '<div class="sale-card">' +
+    '<div class="sale-folios">' + folioRangeText(sale.folios) + '</div>' +
+    '<div class="edit-row" style="margin-top:8px;">' +
+      '<input type="text" id="edit-name-' + sale.id + '" value="' + escapeHtml(sale.comprador) + '" placeholder="Nombre">' +
+      '<input type="tel" id="edit-phone-' + sale.id + '" value="' + escapeHtml(sale.telefono || "") + '" placeholder="Teléfono">' +
+    '</div>' +
+    '<div class="sale-actions">' +
+      '<button class="btn-sm" style="background:var(--teal);color:#fff;" data-save="' + sale.id + '">Guardar</button>' +
+      '<button class="btn-sm" style="background:var(--cream);color:var(--purple);" data-cancel="' + sale.id + '">Cancelar</button>' +
+    '</div>' +
+  '</div>';
+}
+
+async function onSaveEdit(id) {
+  const sale = state.sales.find(s => s.id === id);
+  if (!sale) return;
+  const name = document.getElementById("edit-name-" + id).value.trim();
+  const phone = document.getElementById("edit-phone-" + id).value.trim();
+  if (!name) { showToast("El nombre no puede quedar vacío"); return; }
+  sale.comprador = name;
+  sale.telefono = phone;
+  editingId = null;
+  await saveState();
+  renderFolios();
+  showToast("Datos actualizados");
+}
+
+async function onDelete(id) {
+  const sale = state.sales.find(s => s.id === id);
+  if (!sale) return;
+  const ok = confirm("¿Borrar la venta de " + sale.comprador + " (" + folioRangeText(sale.folios) + ")? Esta acción no se puede deshacer.");
+  if (!ok) return;
+  state.sales = state.sales.filter(s => s.id !== id);
+  await saveState();
+  renderFolios();
+  showToast("Venta eliminada");
+}
+
+function folioListText() {
+  const list = allFolios().slice().sort((a, b) => a.folio.localeCompare(b.folio));
+  let text = "🎟️ Folios participantes — Rifa de Santiago\n\n";
+  for (const f of list) text += "#" + f.folio + " — " + f.comprador + "\n";
+  text += "\nTotal de folios: " + list.length + "\nSorteo: 13 de septiembre";
+  return text;
+}
+
+document.getElementById("btn-copiar").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(folioListText()); showToast("Lista copiada ✅"); }
+  catch (e) { showToast("No se pudo copiar automáticamente"); }
+});
+
+document.getElementById("btn-csv").addEventListener("click", () => {
+  const list = allFolios().slice().sort((a, b) => a.folio.localeCompare(b.folio));
+  let csv = "Folio,Comprador,Telefono,Fecha\n";
+  for (const f of list) {
+    csv += f.folio + ',"' + f.comprador.replace(/"/g, '""') + '","' + (f.telefono || "") + '",' + f.fecha + "\n";
+  }
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "folios_rifa_santiago.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("Descargando CSV...");
+});
+
+// --- Respaldo y restauración ---
+function backupState() {
+  try {
+    const payload = {
+      app: "rifa-santiago",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      state: state
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "respaldo_rifa_santiago_" +
+      new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Respaldo creado ✅");
+  } catch (e) {
+    showToast("No se pudo crear el respaldo");
+  }
+}
+
+function restoreStateFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const payload = JSON.parse(reader.result);
+      const imported = payload && payload.state ? payload.state : payload;
+
+      if (!imported || !Array.isArray(imported.sales)) {
+        throw new Error("Formato inválido");
+      }
+
+      const importedFolios = [];
+      for (const sale of imported.sales) {
+        if (!sale || !Array.isArray(sale.folios) || !sale.comprador) {
+          throw new Error("Datos inválidos");
+        }
+        for (const folio of sale.folios) importedFolios.push(String(folio));
+      }
+
+      const unique = new Set(importedFolios);
+      if (unique.size !== importedFolios.length) {
+        throw new Error("Hay folios duplicados");
+      }
+
+      const ok = confirm(
+        "Esto reemplazará los datos actuales de la rifa por el respaldo seleccionado. ¿Continuar?"
+      );
+      if (!ok) return;
+
+      state = {
+        lastFolioNumber: Number(imported.lastFolioNumber) || 0,
+        sales: imported.sales
+      };
+      const saved = await saveState();
+      if (!saved) return;
+      editingId = null;
+      lastWinner = null;
+      render();
+      showToast("Respaldo restaurado ✅");
+    } catch (e) {
+      showToast("El archivo de respaldo no es válido.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById("btn-backup").addEventListener("click", backupState);
+document.getElementById("btn-restore").addEventListener("click", () => {
+  document.getElementById("restore-file").click();
+});
+document.getElementById("restore-file").addEventListener("change", (e) => {
+  restoreStateFromFile(e.target.files[0]);
+  e.target.value = "";
+});
+
+// --- Sorteo ---
+document.getElementById("btn-sortear").addEventListener("click", () => {
+  const list = allFolios();
+  if (list.length === 0) { showToast("Todavía no hay folios para sortear"); return; }
+  const btn = document.getElementById("btn-sortear");
+  btn.disabled = true;
+  document.getElementById("btn-copiar-ganador").style.display = "none";
+
+  const folioEl = document.getElementById("winner-folio");
+  const nameEl = document.getElementById("winner-name");
+  let ticks = 0;
+  const maxTicks = 18;
+  const interval = setInterval(() => {
+    const r = list[Math.floor(Math.random() * list.length)];
+    folioEl.textContent = "#" + r.folio;
+    nameEl.textContent = r.comprador;
+    ticks++;
+    if (ticks >= maxTicks) {
+      clearInterval(interval);
+      const winner = pickFairWinner(list);
+      folioEl.textContent = "#" + winner.folio;
+      nameEl.textContent = "🎉 " + winner.comprador + " 🎉";
+      lastWinner = winner;
+      btn.disabled = false;
+      document.getElementById("btn-copiar-ganador").style.display = "block";
+    }
+  }, 90);
+});
+
+function pickFairWinner(list) {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return list[arr[0] % list.length];
+}
+
+document.getElementById("btn-copiar-ganador").addEventListener("click", async () => {
+  if (!lastWinner) return;
+  const text = "🎉 ¡Tenemos ganador! 🎉\nFolio #" + lastWinner.folio + " — " + lastWinner.comprador +
+    "\n\nGracias a todos por participar en la Rifa de Santiago 🎟️";
+  try { await navigator.clipboard.writeText(text); showToast("Resultado copiado ✅"); }
+  catch (e) { showToast("No se pudo copiar automáticamente"); }
+});
+
+function render() { renderFolios(); }
+
+updateQtyUI();
+loadState();
+</script>
+
+<script>
+  // PWA: register the service worker when served over HTTPS/localhost.
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js")
+        .then(() => console.log("PWA service worker registrado"))
+        .catch(err => console.warn("No se pudo registrar el service worker", err));
+    });
+  }
+</script>
+
+</body>
+</html>
