@@ -286,6 +286,11 @@
       <div class="hint" style="margin:8px 0 0;text-align:center;">
         Usa esto si acabas de subir cambios y no los ves reflejados. No borra tus ventas.
       </div>
+
+      <button class="btn btn-outline" id="btn-clear-all" style="margin-top:22px;color:var(--pink);border-color:var(--pink);">🗑️ Eliminar todos los folios</button>
+      <div class="hint" style="margin:8px 0 0;text-align:center;">
+        Borra todas las ventas y folios de este dispositivo. Útil para pruebas o para reutilizar la app en otra rifa. Crea un respaldo antes si quieres conservar los datos.
+      </div>
     </div>
 
     <!-- SORTEO -->
@@ -327,6 +332,8 @@
           <div class="hint" style="text-align:center; margin:0 0 6px;">Avisarle en privado al ganador</div>
           <div class="confirm-actions" id="notify-winner-actions" style="text-align:center;"></div>
         </div>
+
+        <button class="btn btn-outline" id="btn-clear-draw" style="margin-top:14px;">🧹 Limpiar resultado del sorteo</button>
       </div>
     </div>
   </main>
@@ -802,7 +809,7 @@ function restoreStateFromFile(file) {
       const saved = await saveState();
       if (!saved) return;
       editingId = null;
-      lastWinner = null;
+      resetDrawUI();
       render();
       showToast("Respaldo restaurado ✅");
     } catch (e) {
@@ -842,6 +849,29 @@ document.getElementById("btn-update-app").addEventListener("click", async () => 
     btn.disabled = false;
     btn.textContent = "🔄 Actualizar app";
   }
+});
+
+// --- Eliminar todos los folios (pruebas / reutilizar la app en otra rifa) ---
+document.getElementById("btn-clear-all").addEventListener("click", async () => {
+  if (state.sales.length === 0) { showToast("No hay folios que eliminar"); return; }
+  const total = allFolios().length;
+  const ok1 = confirm(
+    "Esto eliminará TODAS las ventas y folios registrados (" + total + " folios en total). " +
+    "No se puede deshacer. ¿Quieres crear un respaldo antes? Puedes cancelar y usar 'Crear respaldo' primero.\n\n" +
+    "¿Continuar de todas formas?"
+  );
+  if (!ok1) return;
+  const ok2 = confirm("Última confirmación: se borrará todo. ¿Seguro que quieres continuar?");
+  if (!ok2) return;
+
+  state = { lastFolioNumber: 0, sales: [] };
+  const saved = await saveState();
+  if (!saved) return;
+
+  editingId = null;
+  resetDrawUI();
+  render();
+  showToast("Todos los folios fueron eliminados");
 });
 
 // --- Sorteo (dos etapas: universo -> finalistas en tabla -> ruleta real) ---
@@ -927,8 +957,9 @@ function spinWheelTo(winnerIndex, n) {
     const wheel = document.getElementById("wheel");
     const segAngle = 360 / n;
     const thetaWinner = winnerIndex * segAngle + segAngle / 2;
-    const extraSpins = 5 + secureRandomInt(3); // 5 a 7 vueltas completas
+    const extraSpins = 9 + secureRandomInt(4); // 9 a 12 vueltas completas
     const finalRotation = extraSpins * 360 + ((360 - thetaWinner) % 360);
+    const SPIN_SECONDS = 7.5;
 
     let done = false;
     const finish = () => {
@@ -938,19 +969,40 @@ function spinWheelTo(winnerIndex, n) {
       resolve();
     };
     wheel.addEventListener("transitionend", finish);
-    setTimeout(finish, 5200); // respaldo por si transitionend no dispara
+    setTimeout(finish, SPIN_SECONDS * 1000 + 600); // respaldo por si transitionend no dispara
 
-    const easing = "cubic-bezier(0.13,0.73,0.14,1)";
-    wheel.style.transition = "transform 4.6s " + easing;
+    // curva de frenado larga y gradual: arranca rápido y va perdiendo velocidad poco a poco, sin detenerse en seco
+    const easing = "cubic-bezier(0.08,0.75,0.1,1)";
+    wheel.style.transition = "transform " + SPIN_SECONDS + "s " + easing;
     wheel.style.transform = "rotate(" + finalRotation + "deg)";
 
     // contra-rotación sincronizada para que el texto de las etiquetas quede siempre derecho
     wheel.querySelectorAll(".wheel-label").forEach((label) => {
-      label.style.transition = "transform 4.6s " + easing;
+      label.style.transition = "transform " + SPIN_SECONDS + "s " + easing;
       label.style.transform = "rotate(" + (-finalRotation) + "deg)";
     });
   });
 }
+
+function resetDrawUI() {
+  const stageLabel = document.getElementById("draw-stage-label");
+  stageLabel.textContent = "Listo para comenzar";
+  stageLabel.className = "draw-stage";
+  document.getElementById("finalists-table-wrap").style.display = "none";
+  document.getElementById("finalists-tbody").innerHTML = "";
+  document.getElementById("wheel-wrap").style.display = "none";
+  document.getElementById("wheel").innerHTML = "";
+  document.getElementById("winner-folio").textContent = "—";
+  document.getElementById("winner-name").textContent = "Aún no se ha sorteado";
+  document.getElementById("btn-copiar-ganador").style.display = "none";
+  document.getElementById("notify-winner-block").style.display = "none";
+  lastWinner = null;
+}
+
+document.getElementById("btn-clear-draw").addEventListener("click", () => {
+  resetDrawUI();
+  showToast("Pantalla de sorteo reiniciada");
+});
 
 async function runDraw() {
   const list = allFolios();
@@ -988,22 +1040,28 @@ async function runDraw() {
   const numFinalists = Math.max(1, Math.min(desiredFinalists, list.length));
   const finalists = pickRandomSubset(list, numFinalists);
 
-  // Revelar finalistas como tabla, con aparición escalonada
+  // Revelar finalistas como tabla, con aparición escalonada (más lenta, para apreciarla)
+  const ROW_DELAY_MS = 260;
+  const ROW_ANIM_MS = 380;
   stageLabel.textContent = "✨ Etapa 2 de 2 — ¡" + numFinalists + " finalistas!";
   stageLabel.className = "draw-stage stage-2";
   tbody.innerHTML = finalists.map((f, i) =>
-    '<tr class="finalist-row-anim" id="finalist-row-' + i + '" style="animation-delay:' + (i * 90) + 'ms;">' +
+    '<tr class="finalist-row-anim" id="finalist-row-' + i + '" style="animation-delay:' + (i * ROW_DELAY_MS) + 'ms; animation-duration:' + ROW_ANIM_MS + 'ms;">' +
       '<td>' + (i + 1) + '</td><td class="num">#' + f.folio + '</td><td>' + escapeHtml(f.comprador) + '</td>' +
     '</tr>'
   ).join("");
   tableWrap.style.display = "block";
-  await sleep(numFinalists * 90 + 550);
+  await sleep(numFinalists * ROW_DELAY_MS + ROW_ANIM_MS);
+
+  // Pausa dramática mostrando a todos los finalistas ya reunidos
+  stageLabel.textContent = "🎯 ¡Estos son los finalistas!";
+  await sleep(2200);
 
   // Preparar y mostrar la ruleta
   stageLabel.textContent = "🎡 Girando la ruleta...";
   buildWheel(finalists);
   wheelWrap.style.display = "block";
-  await sleep(350);
+  await sleep(500);
 
   const winnerIndex = secureRandomInt(finalists.length);
   await spinWheelTo(winnerIndex, finalists.length);
