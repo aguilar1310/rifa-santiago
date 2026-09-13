@@ -315,6 +315,8 @@
           </table>
         </div>
 
+        <button class="btn btn-gold" id="btn-start-wheel" style="display:none;">🎡 Iniciar ruleta</button>
+
         <div class="wheel-wrap" id="wheel-wrap">
           <div class="wheel-pointer"></div>
           <div class="wheel" id="wheel"></div>
@@ -957,9 +959,9 @@ function spinWheelTo(winnerIndex, n) {
     const wheel = document.getElementById("wheel");
     const segAngle = 360 / n;
     const thetaWinner = winnerIndex * segAngle + segAngle / 2;
-    const extraSpins = 9 + secureRandomInt(4); // 9 a 12 vueltas completas
+    const extraSpins = 11 + secureRandomInt(4); // 11 a 14 vueltas completas
     const finalRotation = extraSpins * 360 + ((360 - thetaWinner) % 360);
-    const SPIN_SECONDS = 7.5;
+    const SPIN_SECONDS = 12;
 
     let done = false;
     const finish = () => {
@@ -990,6 +992,7 @@ function resetDrawUI() {
   stageLabel.className = "draw-stage";
   document.getElementById("finalists-table-wrap").style.display = "none";
   document.getElementById("finalists-tbody").innerHTML = "";
+  document.getElementById("btn-start-wheel").style.display = "none";
   document.getElementById("wheel-wrap").style.display = "none";
   document.getElementById("wheel").innerHTML = "";
   document.getElementById("winner-folio").textContent = "—";
@@ -1013,6 +1016,7 @@ async function runDraw() {
   const tableWrap = document.getElementById("finalists-table-wrap");
   const tbody = document.getElementById("finalists-tbody");
   const wheelWrap = document.getElementById("wheel-wrap");
+  const startWheelBtn = document.getElementById("btn-start-wheel");
   const folioEl = document.getElementById("winner-folio");
   const nameEl = document.getElementById("winner-name");
 
@@ -1020,44 +1024,58 @@ async function runDraw() {
   document.getElementById("finalist-count").disabled = true;
   document.getElementById("btn-copiar-ganador").style.display = "none";
   document.getElementById("notify-winner-block").style.display = "none";
-  tableWrap.style.display = "none";
+  startWheelBtn.style.display = "none";
   tbody.innerHTML = "";
+  tableWrap.style.display = "block";
   wheelWrap.style.display = "none";
   folioEl.textContent = "—";
   nameEl.textContent = "";
   stageLabel.className = "draw-stage stage-1";
 
-  // Etapa 1: recorrido por todo el universo de folios
-  stageLabel.textContent = "🌌 Etapa 1 de 2 — Explorando el universo de folios...";
-  await spinFlicker(list, 32, 45, 130, (r) => {
-    folioEl.textContent = "#" + r.folio;
-    nameEl.textContent = r.comprador;
-  });
-  folioEl.textContent = "—";
-  nameEl.textContent = "";
-
   const desiredFinalists = parseInt(document.getElementById("finalist-count").value, 10) || 8;
   const numFinalists = Math.max(1, Math.min(desiredFinalists, list.length));
-  const finalists = pickRandomSubset(list, numFinalists);
 
-  // Revelar finalistas como tabla, con aparición escalonada (más lenta, para apreciarla)
-  const ROW_DELAY_MS = 260;
-  const ROW_ANIM_MS = 380;
-  stageLabel.textContent = "✨ Etapa 2 de 2 — ¡" + numFinalists + " finalistas!";
-  stageLabel.className = "draw-stage stage-2";
-  tbody.innerHTML = finalists.map((f, i) =>
-    '<tr class="finalist-row-anim" id="finalist-row-' + i + '" style="animation-delay:' + (i * ROW_DELAY_MS) + 'ms; animation-duration:' + ROW_ANIM_MS + 'ms;">' +
-      '<td>' + (i + 1) + '</td><td class="num">#' + f.folio + '</td><td>' + escapeHtml(f.comprador) + '</td>' +
-    '</tr>'
-  ).join("");
-  tableWrap.style.display = "block";
-  await sleep(numFinalists * ROW_DELAY_MS + ROW_ANIM_MS);
+  // Etapa 1: sacar los folios "de la tómbola" uno por uno, como en un sorteo de papelitos
+  const finalists = [];
+  const remainingPool = list.slice();
 
-  // Pausa dramática mostrando a todos los finalistas ya reunidos
+  for (let i = 0; i < numFinalists; i++) {
+    stageLabel.textContent = "🎟️ Sacando papelito " + (i + 1) + " de " + numFinalists + "...";
+
+    if (remainingPool.length > 1) {
+      await spinFlicker(remainingPool, 16, 40, 120, (r) => {
+        folioEl.textContent = "#" + r.folio;
+        nameEl.textContent = r.comprador;
+      });
+    }
+
+    const idx = secureRandomInt(remainingPool.length);
+    const picked = remainingPool[idx];
+    remainingPool.splice(idx, 1);
+
+    // "leer" el papelito antes de anotarlo
+    folioEl.textContent = "#" + picked.folio;
+    nameEl.textContent = picked.comprador;
+    await sleep(850);
+
+    finalists.push(picked);
+    tbody.insertAdjacentHTML("beforeend",
+      '<tr class="finalist-row-anim" id="finalist-row-' + i + '">' +
+        '<td>' + (i + 1) + '</td><td class="num">#' + picked.folio + '</td><td>' + escapeHtml(picked.comprador) + '</td>' +
+      '</tr>'
+    );
+    await sleep(400);
+  }
+
+  folioEl.textContent = "—";
+  nameEl.textContent = "";
   stageLabel.textContent = "🎯 ¡Estos son los finalistas!";
-  await sleep(2200);
+  stageLabel.className = "draw-stage stage-2";
 
-  // Preparar y mostrar la ruleta
+  // Esperar a que el usuario decida cuándo iniciar la ruleta
+  await waitForManualStart(startWheelBtn);
+
+  // Etapa 2: la ruleta
   stageLabel.textContent = "🎡 Girando la ruleta...";
   buildWheel(finalists);
   wheelWrap.style.display = "block";
@@ -1079,6 +1097,18 @@ async function runDraw() {
   document.getElementById("finalist-count").disabled = false;
   document.getElementById("btn-copiar-ganador").style.display = "block";
   showNotifyWinnerBlock(winner);
+}
+
+function waitForManualStart(startWheelBtn) {
+  return new Promise((resolve) => {
+    startWheelBtn.style.display = "block";
+    const handler = () => {
+      startWheelBtn.removeEventListener("click", handler);
+      startWheelBtn.style.display = "none";
+      resolve();
+    };
+    startWheelBtn.addEventListener("click", handler);
+  });
 }
 
 document.getElementById("btn-sortear").addEventListener("click", runDraw);
